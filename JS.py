@@ -371,7 +371,7 @@ class SURE_pure4D(nn.Module):
 #     def __init__(self, num_classes, num_distr, input_shape):
     def __init__(self, params, input_shape, out_channels):
         #input_shape must be torch.Size object
-        super(SURE_pure, self).__init__()
+        super(SURE_pure4D, self).__init__()
         num_classes = params['num_classes'] 
         num_distr = params['num_distr']
         self.num_repeat = 1
@@ -416,6 +416,7 @@ class SURE_pure4D(nn.Module):
     def forward(self, x_LE, labels=None, sigmas=None): 
         #Size of x is [B, features, in, H, W]
         #Size of sigmas is [num_distr]
+       
         sigmas = self.sigmas
             
         w1 = weightNormalize1(self.w1)
@@ -430,7 +431,7 @@ class SURE_pure4D(nn.Module):
             #During training stage only:
             #Select Tensors of Same class and group together
             inputs = x_LE.contiguous().view(B, -1)
-            inputs_xy = x_LE_xy.contiguous.view(B, -1)
+            inputs_xy = x_LE_xy.contiguous().view(B, -1)
             
             label_used = labels.unsqueeze(-1).repeat(1, torch.cumprod(torch.tensor(self.shapes[1:]), 0)[-1])
 
@@ -498,7 +499,6 @@ class SURE_pure4D(nn.Module):
         #These are of shape [num_classes, num_distr, in, H, W]
         theta_x_LE = x_LE_expand[:, :, 0, ...]
         mag_x_LE = x_LE_expand[:, :, 1, ...]
-
         x_LE_mag = (tao_sqrd / (sigma_sqrd + tao_sqrd)).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, in_channel, H, W) * self.ls(mag_x_LE+eps)
 
         miu_bins_mag = (sigma_sqrd / (sigma_sqrd + tao_sqrd)).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, in_channel, H, W) *  self.ls(self.miu.unsqueeze(0).repeat(self.classes, 1, 1, 1, 1, 1)[:, :, 1, ...]+eps)
@@ -527,9 +527,11 @@ class SURE_pure4D(nn.Module):
 
         dist_abs = self.P1metric(x_LE[:, :, 1, ...].contiguous().view(-1), means_expand[:, :, 1, ...].contiguous().view(-1)).view(self.classes, B, in_channel, H, W)   
         
+        (self.X_LEs.view(self.classes, -1) / self.X_weights).view(self.shapes)
+        
         #[classes, 2, in, H, W]
         x_LEs_xy_out = (self.X_LEs_xy.view(self.classes, -1) / self.X_weights).view(self.shapes)
-        x_LEs_xy_out.unsqueeze(1).repeat(1, B, 1, 1, 1, 1)
+        x_LEs_xy_out = x_LEs_xy_out.unsqueeze(1).repeat(1, B, 1, 1, 1, 1)
         x_LE_xy = x_LE_xy.unsqueeze(0).repeat(self.classes, 1, 1, 1, 1, 1)
         
         #[class, B, 2, in, H, W]

@@ -26,12 +26,12 @@ import model_p_mod as model
 
 
 Params_dict = {
-    'lrs': [0.01, 0.03, 0.008, 0.01, 0.005, 0.015],
-    'batches': [100, 100, 120, 80, 200],
+    'lrs': [0.01, 0.03, 0.008, 0.01, 0.005, 0.015, 0.02],
+    'batches': [100, 100, 120, 80, 200, 400, 800],
     'max_epochs': 150,
     'test_batch': 400,
     'num_classes': 11,
-    'num_distributions': 5,
+    'num_distributions': 8,
     'num_repeat': 100,
 }
 
@@ -226,85 +226,86 @@ save_path = None
 torch.manual_seed(42222222)
 np.random.seed(42222222)
 # np.random.seed(42222222)
+distr = [5, 8, 3, 10]
+for ss in distr:
+    for b in batches:
+        for lr in lrs:
+            new = True
+            logger.info('Batch[{b}]-LR[{lr}]'.format(b=b, lr=lr))
+            manifold_net = model.ManifoldNetRes1(Params_dict['num_classes'], ss, Params_dict['num_repeat']).cuda()
 
-for b in batches:
-    for lr in lrs:
-        new = True
-        logger.info('Batch[{b}]-LR[{lr}]'.format(b=b, lr=lr))
-        manifold_net = model.ManifoldNetRes1(Params_dict['num_classes'], Params_dict['num_distributions'], Params_dict['num_repeat']).cuda()
-        
-        init_params = manifold_net.parameters()
-        model_parameters = filter(lambda p: p.requires_grad, manifold_net.parameters())
-        logger.info(str([p.size() for p in model_parameters]))
-        model_parameters = filter(lambda p: p.requires_grad, manifold_net.parameters())
-        params = sum([np.prod(p.size()) for p in model_parameters])
-        logger.info("Model Parameters: "+str(params))
-#         manifold_net.load_state_dict(torch.load('./save/Res-acc[98.393]-[100]-[0.008]-11class-model.ckpt'))
-        optimizer = optim.Adam(manifold_net.parameters(), lr=lr)
-        criterion = nn.CrossEntropyLoss()
-        
-        
-
-        # Training...
-        print('Starting training...')
-        validation_accuracy = []
-        highest=0
-        #split = 0
-       
-            #for train_idx, test_idx in data_utils.k_folds(n_splits=10, n_samples=(14557)):
-                
-        train_generator, test_generator = data_prep_11(b, 0.3)
-        epoch_validation_history = []
-
-        for epoch in range(max_epochs):
-            print('Starting Epoch ', epoch, '...')
-            loss_sum = 0
-            start = time.time()
-            train_acc = 0
-            tot_len=0
-            tot_loss=0
-            for it,(local_batch, local_labels) in enumerate(train_generator):
-                batch = torch.tensor(local_batch, requires_grad=True).cuda()
-                optimizer.zero_grad()
-                out, losses = manifold_net(batch, local_labels.cuda())
-                train_acc += classification(out, local_labels.cuda()) 
-                loss = criterion(out, local_labels.cuda())
-
-                ##Can customize losses
-                losses = sum(losses)
-                sums = torch.sum(losses)
-                loss = loss + sums 
-                ##
-
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                tot_len += len(out)
-                tot_loss += loss
+            init_params = manifold_net.parameters()
+            model_parameters = filter(lambda p: p.requires_grad, manifold_net.parameters())
+            logger.info(str([p.size() for p in model_parameters]))
+            model_parameters = filter(lambda p: p.requires_grad, manifold_net.parameters())
+            params = sum([np.prod(p.size()) for p in model_parameters])
+            logger.info("Model Parameters: "+str(params))
+    #         manifold_net.load_state_dict(torch.load('./save/Res-acc[98.393]-[100]-[0.008]-11class-model.ckpt'))
+            optimizer = optim.Adam(manifold_net.parameters(), lr=lr)
+            criterion = nn.CrossEntropyLoss()
 
 
 
+            # Training...
+            print('Starting training...')
+            validation_accuracy = []
+            highest=0
+            #split = 0
 
-            logger.info("Epoch: "+str(epoch)+"Training accuracy: "+str(train_acc / (tot_len)*100.))
-            logger.info("Loss: "+str(tot_loss / it))
-            acc, pred, real = test(manifold_net, device, test_generator)
+                #for train_idx, test_idx in data_utils.k_folds(n_splits=10, n_samples=(14557)):
 
-            manifold_net.clear_weights()
-            if acc > highest:
-                highest=acc
-                if save_path != None and not new:
-                    os.remove(save_path)
+            train_generator, test_generator = data_prep_11(b, 0.3)
+            epoch_validation_history = []
 
-                save_path = os.path.join('./save/', '[{acc}]-[{batch}]-[{learning_rate}]-11class-model-[{num_distr}].ckpt'.format(acc = np.round(acc, 3), batch=b, learning_rate=lr, num_distr = Params_dict['num_distributions']))
-                new = False
-                torch.save(manifold_net.state_dict(), save_path)
-                print('Saved model checkpoints into {}...'.format(save_path))
-            logger.info("Epoch: "+str(epoch)+"Testing accuracy is "+str(acc))
-#                     print('Epoch Time:', end-start)
-#                 accs.append(highest)
-        manifold_net = model.ManifoldNetComplex1(Params_dict['num_classes'], Params_dict['num_distributions'], Params_dict['num_repeat']).cuda()
-        optimizer = optim.Adam(manifold_net.parameters(), lr=lr)
-        criterion = nn.CrossEntropyLoss()
+            for epoch in range(max_epochs):
+                print('Starting Epoch ', epoch, '...')
+                loss_sum = 0
+                start = time.time()
+                train_acc = 0
+                tot_len=0
+                tot_loss=0
+                for it,(local_batch, local_labels) in enumerate(train_generator):
+                    batch = torch.tensor(local_batch, requires_grad=True).cuda()
+                    optimizer.zero_grad()
+                    out, losses = manifold_net(batch, local_labels.cuda())
+                    train_acc += classification(out, local_labels.cuda()) 
+                    loss = criterion(out, local_labels.cuda())
+
+                    ##Can customize losses
+                    losses = sum(losses)
+                    sums = torch.sum(losses)
+                    loss = loss + sums 
+                    ##
+
+                    loss.backward()
+                    optimizer.step()
+                    optimizer.zero_grad()
+                    tot_len += len(out)
+                    tot_loss += loss
+
+
+
+
+                logger.info("Epoch: "+str(epoch)+"Training accuracy: "+str(train_acc / (tot_len)*100.))
+                logger.info("Loss: "+str(tot_loss / it))
+                acc, pred, real = test(manifold_net, device, test_generator)
+
+                manifold_net.clear_weights()
+                if acc > highest:
+                    highest=acc
+                    if save_path != None and not new:
+                        os.remove(save_path)
+
+                    save_path = os.path.join('./save/', '[{acc}]-[{batch}]-[{learning_rate}]-11class-model-[{num_distr}].ckpt'.format(acc = np.round(acc, 3), batch=b, learning_rate=lr, num_distr = ss))
+                    new = False
+                    torch.save(manifold_net.state_dict(), save_path)
+                    print('Saved model checkpoints into {}...'.format(save_path))
+                logger.info("Epoch: "+str(epoch)+"Testing accuracy is "+str(acc))
+    #                     print('Epoch Time:', end-start)
+    #                 accs.append(highest)
+            manifold_net = model.ManifoldNetComplex1(Params_dict['num_classes'], ss, Params_dict['num_repeat']).cuda()
+            optimizer = optim.Adam(manifold_net.parameters(), lr=lr)
+            criterion = nn.CrossEntropyLoss()
 
         
         
