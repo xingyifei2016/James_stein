@@ -23,13 +23,14 @@ from sklearn.utils.multiclass import unique_labels
 import scipy.signal
 from collections import Counter
 import model_p_mod as model
+import scipy.io as sio
 
 
 Params_dict = {
-    'lrs': [0.01, 0.03, 0.008, 0.01, 0.005, 0.015, 0.02],
-    'batches': [100, 100, 120, 80, 200, 400, 800],
+    'lrs': [0.007, 0.005, 0.009],
+    'batches': [100, 200, 100, 100],
     'max_epochs': 150,
-    'test_batch': 400,
+    'test_batch': 1,
     'num_classes': 11,
     'num_distributions': 8,
     'num_repeat': 100,
@@ -75,7 +76,7 @@ def data_prep_11(batch_size, split=0.7):
           'shuffle': True,
           'num_workers': 1}
 
-    params_val = {'batch_size': 400,
+    params_val = {'batch_size': 1,
               'shuffle': False,
               'num_workers': 1}
     
@@ -127,7 +128,25 @@ def index_split(full_or_no):
     else:
         return subclass, subclass_test
         
+def test_val(model, device, test_loader):
+    test_loss = 0
+    correct = 0
+    pred_all = np.array([[]]).reshape((0, 1))
+    real_all = np.array([[]]).reshape((0, 1))
+    with torch.no_grad():
+        for data, target in test_loader:
+            targets = target.cpu().numpy()
+            
+            data, target = data.to(device), target.to(device)
+            x0, x1, x2, x3, x4, x5, output, losses = model(data)
+            pred = output.max(1, keepdim=True)[1] # get the index of the max log-probability
+            
+            #For confusion matrix
+            pred_all = np.concatenate((pred_all, pred.cpu().numpy()), axis=0)
+            real_all = np.concatenate((real_all, target.unsqueeze(1).cpu().numpy()), axis=0)
+            correct += pred.eq(target.view_as(pred)).sum().item()
     
+    return 100. * correct / len(test_loader.dataset), pred_all, real_all    
 
 
 def test(model, device, test_loader):
@@ -156,7 +175,83 @@ def classification(out,desired):
     correct = (predicted == desired).sum().item()
     return correct
 
-def draw_confusion_matrix(y_true, y_pred, classes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], cmap=plt.cm.Blues):
+
+def visualize(model, data_generator):
+    kk=1
+    save_dict = {}
+    for it,(local_batch, local_labels) in enumerate(data_generator):
+        batch = torch.tensor(local_batch, requires_grad=True).cuda()
+        x0, x1, x2, x3, x4, x5, x, res_loss = model(batch, None)
+        label = local_labels.item()
+        save_dict['c'+str(label)] = []
+        
+        img = x0[0, :, 0, :, :].cpu().detach().numpy()
+        
+        
+        #H is phase V is magnitude
+        #[2, H, W] phase, mag
+        img = img.transpose((1, 2, 0))
+        img = np.insert(img, 1, 1, axis=2)
+        
+        #[128, 1]
+        img[:, :, 0] = img[:, :, 0] / math.pi
+        img[:, :, 2] = np.sqrt(img[:, :, 2])
+        
+        save_dict['c'+str(label)].append(img)
+        
+        img1 = x1[0, :, 6:16, :, :].cpu().detach().numpy()
+        img1 = img1.transpose((2, 3, 0, 1))
+        img1 = np.insert(img1, 1, 1, axis=2)
+
+        img1[:, :, 2, :] = np.sqrt(img1[:, :, 2, :])
+
+        min_0 = np.min(img1[:, :, 0, :], keepdims=True)
+        max_0 = np.max(img1[:, :, 0, :], keepdims=True)
+
+        min_2 = np.min(img1[:, :, 2, :], keepdims=True)
+        max_2 = np.max(img1[:, :, 2, :], keepdims=True)
+
+        img1[:, :, 0, :] = (img1[:, :, 0, :] - min_0)/ (max_0-min_0)
+        img1[:, :, 2, :] = (img1[:, :, 2, :] - min_2)/ (max_2-min_2)
+        
+        save_dict['c'+str(label)].append(img1)
+        
+        
+
+        img2 = x2[0, 0:10, :, :].cpu().detach().numpy()
+        img2 = img2.transpose((1, 2, 0))
+        
+        img2 = (img2 - np.min(img2)) / (np.max(img2) - np.min(img2))
+        
+        save_dict['c'+str(label)].append(img2)
+        
+        kk+=1
+
+        img3 = x3[0, 0:10, :, :].cpu().detach().numpy()
+        img3 = img3.transpose((1, 2, 0))
+        
+        img3 = (img3 - np.min(img3)) / (np.max(img3) - np.min(img3))
+
+        save_dict['c'+str(label)].append(img3)
+
+        kk+=1
+        
+        img4 = x4[0, 0:10, :, :].cpu().detach().numpy()
+        imshape = img4.shape
+        img4 = (img4 - np.min(img4)) / (np.max(img4) - np.min(img4))
+        save_dict['c'+str(label)].append(img4)
+
+        kk+=1
+
+        img5 = x5[0, :, :, :].cpu().detach().numpy().reshape(x5.shape[1], 1)
+        save_dict['c'+str(label)].append(img5)
+
+        kk+=1
+    sio.savemat('data_new.mat', save_dict)
+    
+    
+
+def draw_confusion_matrix(y_true, y_pred, acc, classes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], cmap=plt.cm.Blues):
     cm = confusion_matrix(y_true, y_pred)
     cm = np.around(cm.astype('float') / cm.sum(axis=1)[:, np.newaxis], decimals=2)
     cm = cm / np.sum(cm, axis=1, keepdims=True)
@@ -197,8 +292,8 @@ def draw_confusion_matrix(y_true, y_pred, classes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
                         ha="center", va="center",
                         color="white" if cm[i, j] > thresh else "black")
     fig.tight_layout()
-    fig.savefig('temp.png', dpi=fig.dpi)
-    fig.savefig('temp.eps', dpi=fig.dpi, format='eps')
+    fig.savefig('temp'+str(acc)+'.png', dpi=fig.dpi)
+    fig.savefig('temp'+str(acc)+'.eps', dpi=fig.dpi, format='eps')
     
     
     
@@ -220,27 +315,26 @@ batches = Params_dict['batches']
 lrs = Params_dict['lrs']
 
 
-# batches = [150]
-# lrs = [0.01]
+batches = [100, 200, 300, 500]
+lrs = [0.008, 0.01]
 save_path = None
 torch.manual_seed(42222222)
 np.random.seed(42222222)
 # np.random.seed(42222222)
-distr = [5, 8, 3, 10]
+distr = [5]
 for ss in distr:
     for b in batches:
         for lr in lrs:
             new = True
             logger.info('Batch[{b}]-LR[{lr}]'.format(b=b, lr=lr))
-            manifold_net = model.ManifoldNetRes1(Params_dict['num_classes'], ss, Params_dict['num_repeat']).cuda()
-
+            manifold_net = model.Test(Params_dict['num_classes'], ss, Params_dict['num_repeat']).cuda()
             init_params = manifold_net.parameters()
             model_parameters = filter(lambda p: p.requires_grad, manifold_net.parameters())
             logger.info(str([p.size() for p in model_parameters]))
             model_parameters = filter(lambda p: p.requires_grad, manifold_net.parameters())
             params = sum([np.prod(p.size()) for p in model_parameters])
             logger.info("Model Parameters: "+str(params))
-    #         manifold_net.load_state_dict(torch.load('./save/Res-acc[98.393]-[100]-[0.008]-11class-model.ckpt'))
+            manifold_net.load_state_dict(torch.load('./save/[98.055]-[100]-[0.008]-11class-model-[5].ckpt'))
             optimizer = optim.Adam(manifold_net.parameters(), lr=lr)
             criterion = nn.CrossEntropyLoss()
 
@@ -257,52 +351,54 @@ for ss in distr:
             train_generator, test_generator = data_prep_11(b, 0.3)
             epoch_validation_history = []
 
-            for epoch in range(max_epochs):
-                print('Starting Epoch ', epoch, '...')
-                loss_sum = 0
-                start = time.time()
-                train_acc = 0
-                tot_len=0
-                tot_loss=0
-                for it,(local_batch, local_labels) in enumerate(train_generator):
-                    batch = torch.tensor(local_batch, requires_grad=True).cuda()
-                    optimizer.zero_grad()
-                    out, losses = manifold_net(batch, local_labels.cuda())
-                    train_acc += classification(out, local_labels.cuda()) 
-                    loss = criterion(out, local_labels.cuda())
+#             for epoch in range(max_epochs):
+#                 print('Starting Epoch ', epoch, '...')
+#                 loss_sum = 0
+#                 start = time.time()
+#                 train_acc = 0
+#                 tot_len=0
+#                 tot_loss=0
+#                 for it,(local_batch, local_labels) in enumerate(train_generator):
+#                     batch = torch.tensor(local_batch, requires_grad=True).cuda()
+#                     optimizer.zero_grad()
+#                     out, losses = manifold_net(batch, local_labels.cuda())
+#                     train_acc += classification(out, local_labels.cuda()) 
+#                     loss = criterion(out, local_labels.cuda())
 
-                    ##Can customize losses
-                    losses = sum(losses)
-                    sums = torch.sum(losses)
-                    loss = loss + sums 
-                    ##
+#                     ##Can customize losses
+#                     losses = sum(losses)
+#                     sums = torch.sum(losses)
+#                     loss = loss + sums 
+#                     ##
 
-                    loss.backward()
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    tot_len += len(out)
-                    tot_loss += loss
-
-
+#                     loss.backward()
+#                     optimizer.step()
+#                     optimizer.zero_grad()
+#                     tot_len += len(out)
+#                     tot_loss += loss
 
 
-                logger.info("Epoch: "+str(epoch)+"Training accuracy: "+str(train_acc / (tot_len)*100.))
-                logger.info("Loss: "+str(tot_loss / it))
-                acc, pred, real = test(manifold_net, device, test_generator)
 
-                manifold_net.clear_weights()
-                if acc > highest:
-                    highest=acc
-                    if save_path != None and not new:
-                        os.remove(save_path)
 
-                    save_path = os.path.join('./save/', '[{acc}]-[{batch}]-[{learning_rate}]-11class-model-[{num_distr}].ckpt'.format(acc = np.round(acc, 3), batch=b, learning_rate=lr, num_distr = ss))
-                    new = False
-                    torch.save(manifold_net.state_dict(), save_path)
-                    print('Saved model checkpoints into {}...'.format(save_path))
-                logger.info("Epoch: "+str(epoch)+"Testing accuracy is "+str(acc))
-    #                     print('Epoch Time:', end-start)
-    #                 accs.append(highest)
+#                 logger.info("Epoch: "+str(epoch)+"Training accuracy: "+str(train_acc / (tot_len)*100.))
+#                 logger.info("Loss: "+str(tot_loss / it))
+            visualize(manifold_net, test_generator)
+#             acc, pred, real = test_val(manifold_net, device, test_generator)
+            print(acc)
+            manifold_net.clear_weights()
+            exit()
+#                 if acc > highest:
+#                     highest=acc
+#                     if save_path != None and not new:
+#                         os.remove(save_path)
+#                     draw_confusion_matrix(real, pred, acc)
+#                     save_path = os.path.join('./save/', '[{acc}]-[{batch}]-[{learning_rate}]-11class-model-[{num_distr}].ckpt'.format(acc = np.round(acc, 3), batch=b, learning_rate=lr, num_distr = ss))
+#                     new = False
+#                     torch.save(manifold_net.state_dict(), save_path)
+#                     print('Saved model checkpoints into {}...'.format(save_path))
+#                 logger.info("Epoch: "+str(epoch)+"Testing accuracy is "+str(acc))
+#     #                     print('Epoch Time:', end-start)
+#     #                 accs.append(highest)
             manifold_net = model.ManifoldNetComplex1(Params_dict['num_classes'], ss, Params_dict['num_repeat']).cuda()
             optimizer = optim.Adam(manifold_net.parameters(), lr=lr)
             criterion = nn.CrossEntropyLoss()

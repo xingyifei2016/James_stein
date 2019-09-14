@@ -153,7 +153,7 @@ class SURE(nn.Module):
         #These are of shape [num_classes, num_distr, in, H, W]
         theta_x_LE = x_LE_expand[:, :, 0, ...]
         mag_x_LE = x_LE_expand[:, :, 1, ...]
-
+        
         x_LE_mag = (tao_sqrd / (sigma_sqrd + tao_sqrd)).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, in_channel, H, W) * self.ls(mag_x_LE+eps)
 
         miu_bins_mag = (sigma_sqrd / (sigma_sqrd + tao_sqrd)).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).repeat(1, 1, in_channel, H, W) *  self.ls(self.miu.unsqueeze(0).repeat(self.classes, 1, 1, 1, 1, 1)[:, :, 1, ...]+eps)
@@ -537,7 +537,6 @@ class SURE_pure4D(nn.Module):
         #[class, B, 2, in, H, W]
         dist_xy = (x_LE_xy - x_LEs_xy_out) ** 2
         dist_xy = torch.sum(dist_xy, dim=2)
-
         #[num_classes, B, in, H, W]
         dist_l1 = (self.weight[0]**2)*dist_rot + (self.weight[1]**2)*dist_abs + (self.weight[2]**2)*dist_xy
 #             dist_l1 = dist_l1.view(all_data_shape[0], all_data_shape[1], all_data_shape[2], all_data_shape[3]) 

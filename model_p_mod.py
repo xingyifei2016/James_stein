@@ -67,9 +67,10 @@ class ManifoldNetComplex1(nn.Module):
     def __init__(self, num_classes, num_distr, num_repeat):
         super(ManifoldNetComplex1, self).__init__()
         params={'num_classes': num_classes, 'num_distr': num_distr, 'num_repeat': num_repeat}
-        self.complex_conv1 = complex.ComplexConv2Deffgroup(1, 20, (5, 5), (2, 2))
-        self.complex_conv2 = complex.ComplexConv2Deffgroup(20, 20, (5, 5), (2, 2))
-        self.SURE = SURE(params, 20, 20, (5, 5), (1, 1), calc_next(22, 5, 1, 20))
+        self.complex_conv1 = complex.ComplexConv2Deffgroup(1, 20, (5, 5), (5, 5)) #20, 20
+        self.SURE = SURE_pure(params, calc_next(100, 5, 5, 20), 20) 
+#         self.complex_conv2 = complex.ComplexConv2Deffgroup(20, 20, (5, 5), (2, 2))
+#         self.SURE = SURE(params, 20, 20, (5, 5), (1, 1), calc_next(22, 5, 1, 20))
         self.name = 'complex+standardCNN'
         self.proj2 = complex.manifoldReLUv2angle(20) #complex.ReLU4Dsp(40)
         self.relu = nn.ReLU()
@@ -82,22 +83,24 @@ class ManifoldNetComplex1(nn.Module):
 #         self.linear_2 = nn.Linear(40, 20)
 #         self.linear_4 = nn.Linear(20, 11)
 
-        self.conv_1 = nn.Conv2d(20, 30, (5,5))
-        self.mp_1 = nn.MaxPool2d((3,3))
-        self.conv_2 = nn.Conv2d(30, 40, (3,3))
-        self.conv_3 = nn.Conv2d(40, 50, (2,2))
-        self.bn_1 = nn.BatchNorm2d(30)
-        self.bn_2 = nn.BatchNorm2d(40)
-        self.bn_3 = nn.BatchNorm2d(50)
-        self.linear_2 = nn.Linear(50, 20)
-        self.linear_4 = nn.Linear(20, 11)
+#         self.conv_1 = nn.Conv2d(20, 30, (5,5))
+        self.conv_1 = nn.Conv2d(20, 40, (5,5))
+        self.mp_1 = nn.MaxPool2d((2,2))
+        self.conv_2 = nn.Conv2d(40, 60, (3,3))
+        self.mp_2 = nn.MaxPool2d((2,2))
+        self.conv_3 = nn.Conv2d(60, 80, (3,3))
+        self.bn_1 = nn.BatchNorm2d(40)
+        self.bn_2 = nn.BatchNorm2d(60)
+        self.bn_3 = nn.BatchNorm2d(80)
+        self.linear_2 = nn.Linear(80, 40)
+        self.linear_4 = nn.Linear(40, 11)
         
         self.loss_weight = torch.nn.Parameter(torch.rand(1), requires_grad=True)
     def forward(self, x, labels=None):
         x = self.complex_conv1(x)
         x = self.proj2(x)
-        x = self.complex_conv2(x)
-        x = self.proj2(x)
+#         x = self.complex_conv2(x)
+#         x = self.proj2(x)
         x, losses = self.SURE(x, labels)
         x = self.relu(x)
         x = self.conv_1(x)
@@ -107,6 +110,7 @@ class ManifoldNetComplex1(nn.Module):
         x = self.conv_2(x)
         x = self.bn_2(x)
         x = self.relu(x)
+        x = self.mp_2(x)
         x = self.conv_3(x)
         x = self.bn_3(x)
         x = self.relu(x)
@@ -121,7 +125,120 @@ class ManifoldNetComplex1(nn.Module):
     
     def clear_weights(self):
         self.SURE.clear_LE()
+
+class Test(nn.Module):
+    def __init__(self, num_classes, num_distr, num_repeat):
+        super(Test, self).__init__()
+        params={'num_classes': num_classes, 'num_distr': num_distr, 'num_repeat': num_repeat}
+        self.complex_conv1 = complex.ComplexConv2Deffgroup(1, 20, (5, 5), (5, 5)) #20, 20
+        self.SURE = SURE_pure(params, calc_next(100, 5, 5, 20), 20)
+        self.name = 'complex+standardCNN'
+        self.proj2 = complex.manifoldReLUv2angle(20) #complex.ReLU4Dsp(40)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.3)
+        self.conv_1 = nn.Conv2d(20, 40, (5,5))
+        self.mp_1 = nn.MaxPool2d((2,2))
+        self.conv_2 = nn.Conv2d(40, 60, (3,3))
+        self.mp_2 = nn.MaxPool2d((2,2))
+        self.conv_3 = nn.Conv2d(60, 80, (3,3))
+        self.bn_1 = nn.BatchNorm2d(40)
+        self.bn_2 = nn.BatchNorm2d(60)
+        self.bn_3 = nn.BatchNorm2d(80)
+        self.linear_2 = nn.Linear(80, 40)
+        self.linear_4 = nn.Linear(40, 11)
         
+        self.loss_weight = torch.nn.Parameter(torch.rand(1), requires_grad=True)
+    def forward(self, x, labels=None):
+        x0=x
+        x1 = self.complex_conv1(x)
+        x = self.proj2(x1)
+        x2, losses = self.SURE(x, labels)
+        x = self.relu(x2)
+        x3 = self.conv_1(x)
+        x = self.bn_1(x3)
+        x = self.relu(x)
+        x = self.mp_1(x)
+        x4 = self.conv_2(x)
+        x = self.bn_2(x4)
+        x = self.relu(x)
+        x = self.mp_2(x)
+        x5 = self.conv_3(x)
+#         x = self.bn_3(x5)
+        x = self.relu(x5)
+        x = x.squeeze(-1).squeeze(-1)
+        x = self.linear_2(x)
+        x = self.relu(x)
+        x = self.linear_4(x)
+        res_loss = 0
+        if losses is not None:
+            res_loss = losses * (self.loss_weight ** 2)
+        return x0, x1, x2, x3, x4, x5, x, res_loss
+    
+    def clear_weights(self):
+        self.SURE.clear_LE()
+        
+# class ManifoldNetComplex1(nn.Module):
+#     def __init__(self, num_classes, num_distr, num_repeat):
+#         super(ManifoldNetComplex1, self).__init__()
+#         params={'num_classes': num_classes, 'num_distr': num_distr, 'num_repeat': num_repeat}
+#         self.complex_conv1 = complex.ComplexConv2Deffgroup(1, 20, (5, 5), (2, 2)) #20, 20
+# #         self.SURE = SURE_pure(params, calc_next(100, 5, 5, 20), 20) 
+#         self.complex_conv2 = complex.ComplexConv2Deffgroup(20, 20, (5, 5), (2, 2))
+#         self.SURE = SURE(params, 20, 20, (5, 5), (1, 1), calc_next(22, 5, 1, 20))
+#         self.name = 'complex+standardCNN'
+#         self.proj2 = complex.manifoldReLUv2angle(20) #complex.ReLU4Dsp(40)
+#         self.relu = nn.ReLU()
+#         self.dropout = nn.Dropout(0.3)
+#         self.conv_1 = nn.Conv2d(20, 30, (5,5))
+#         self.mp_1 = nn.MaxPool2d((2,2))
+#         self.conv_2 = nn.Conv2d(30, 40, (3,3))
+#         self.bn_1 = nn.BatchNorm2d(30)
+#         self.bn_2 = nn.BatchNorm2d(40)
+#         self.linear_2 = nn.Linear(50, 20)
+#         self.linear_4 = nn.Linear(20, 11)
+
+# # #         self.conv_1 = nn.Conv2d(20, 30, (5,5))
+# #         self.conv_1 = nn.Conv2d(20, 40, (3,3))
+# #         self.mp_1 = nn.MaxPool2d((2,2))
+# #         self.conv_2 = nn.Conv2d(40, 60, (3,3))
+#         self.mp_2 = nn.MaxPool2d((2,2))
+#         self.conv_3 = nn.Conv2d(40, 50, (2,2))
+# #         self.bn_1 = nn.BatchNorm2d(40)
+# #         self.bn_2 = nn.BatchNorm2d(60)
+#         self.bn_3 = nn.BatchNorm2d(50)
+# #         self.linear_2 = nn.Linear(80, 40)
+# #         self.linear_4 = nn.Linear(40, 11)
+        
+#         self.loss_weight = torch.nn.Parameter(torch.rand(1), requires_grad=True)
+#     def forward(self, x, labels=None):
+#         x = self.complex_conv1(x)
+#         x = self.proj2(x)
+#         x = self.complex_conv2(x)
+#         x = self.proj2(x)
+#         x, losses = self.SURE(x, labels)
+#         x = self.relu(x)
+#         x = self.conv_1(x)
+#         x = self.bn_1(x)
+#         x = self.relu(x)
+#         x = self.mp_1(x)
+#         x = self.conv_2(x)
+#         x = self.bn_2(x)
+#         x = self.relu(x)
+#         x = self.mp_2(x)
+#         x = self.conv_3(x)
+#         x = self.bn_3(x)
+#         x = self.relu(x)
+#         x = x.squeeze(-1).squeeze(-1)
+#         x = self.linear_2(x)
+#         x = self.relu(x)
+#         x = self.linear_4(x)
+#         res_loss = 0
+#         if losses is not None:
+#             res_loss = losses * (self.loss_weight ** 2)
+#         return x, res_loss
+    
+#     def clear_weights(self):
+#         self.SURE.clear_LE()
         
 class ManifoldNetR(nn.Module):
     
