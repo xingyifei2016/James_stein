@@ -152,7 +152,7 @@ def to_polar4D(X):
     return Y
 
 
-def data_prep(path, batch_size_train, batch_size_test):
+def data_prep(path, train_idx_path, test_idx_path, batch_size_train, batch_size_test):
     def to_onehot(yy):
         yy1 = np.zeros([len(yy), max(yy)+1])
         yy1[np.arange(len(list(yy))),yy] = 1
@@ -167,8 +167,8 @@ def data_prep(path, batch_size_train, batch_size_test):
             X.append(Xd[(mod,snr)])
             for i in range(Xd[(mod,snr)].shape[0]):  lbl.append((mod,snr))
     X = np.vstack(X)
-    train_idx = np.load("../data/train_idx.npy")
-    test_idx = np.load("../data/test_idx.npy")
+    train_idx = np.load(train_idx_path)
+    test_idx = np.load(test_idx_path)
     X_train = X[train_idx]
     X_test = X[test_idx]
     X_train = (X_train - np.mean(X_train) ) / np.std(X_train)
@@ -206,6 +206,10 @@ def main():
                         help='number of distributions to learn for shrinkage estimator')
     parser.add_argument('--data-dir', type=str, default="../data/RML2016.10a_dict.pkl", metavar='N',
                         help='where data is stored')
+    parser.add_argument('--train-id', type=str, default="../data/train_idx.npy", metavar='N',
+                        help='where train ids are stored')
+    parser.add_argument('--test-id', type=str, default="../data/test_idx.npy", metavar='N',
+                        help='where test ids are stored')
     
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -218,7 +222,7 @@ def main():
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print("#Model Parameters: "+str(params))
-    train_loader, test_loader, lbl, snrs, test_idx = data_prep(args.data_dir, args.batchsize, args.test_batchsize)
+    train_loader, test_loader, lbl, snrs, test_idx = data_prep(args.data_dir, args.train_id, args.test_id, args.batchsize, args.test_batchsize)
     print("Batch Size: "+str(args.batchsize))
     optimizer = optim.Adam(model.parameters(), lr=args.lr, eps=1e-3, amsgrad=True )
     print("Learning Rate: "+str(args.lr))
