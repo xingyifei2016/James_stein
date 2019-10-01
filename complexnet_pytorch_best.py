@@ -275,7 +275,7 @@ class Test(nn.Module):
         res_loss = 0
         if losses is not None:
             res_loss = losses * (self.loss_weight ** 2)
-        return x0, x1, x2, x3, x4, x5, x, res_loss    
+        return self.SURE.miu, x0, x1, x2, x3, x4, x5, x, res_loss    
     
 class STFT(nn.Module):
     def __init__(self, num_distr):
@@ -629,39 +629,91 @@ def visualize(model, data_generator):
     save_dict = {}
     for it,(local_batch, local_labels) in enumerate(data_generator):
         batch = torch.tensor(local_batch, requires_grad=True).cuda()
-        x0, x1, x2, x3, x4, x5, x, res_loss = model(batch, None)
-        label = local_labels.item()
-        save_dict['c'+str(label)] = []
+        sure, x0, x1, x2, x3, x4, x5, x, res_loss = model(batch, None)
+#         label = local_labels.item()
+#         save_dict['c'+str(label)] = []
         
-        img = x0[0, :2, 0, :, 0].cpu().detach().numpy()
-        img = img.transpose((1, 0))
+#         img = x0[0, :2, 0, :, 0].cpu().detach().numpy()
+#         img = img.transpose((1, 0))
         
-        #[128, 1]
-        phase = np.expand_dims(img[:, 0] / np.pi, axis=1)
-        
-        
-        save_dict['c'+str(label)].append(phase)
-        
-        #[128, 1]
-        mag = np.expand_dims(img[:, 1], axis=1)
+#         #[128, 1]
+#         phase = np.expand_dims(img[:, 0] / np.pi, axis=1)
         
         
-#         img = np.expand_dims(phase, axis=2)
-#         img[:, :, 0] = mag
-        #[128, 3]
-        mag = np.insert(mag, 1, 1, axis=1)
-        mag = np.insert(mag, 2, 1, axis=1)
+#         save_dict['c'+str(label)].append(phase)
         
-        save_dict['c'+str(label)].append(mag)
-        kk+=1
+#         #[128, 1]
+#         mag = np.expand_dims(img[:, 1], axis=1)
+        
+        
+# #         img = np.expand_dims(phase, axis=2)
+# #         img[:, :, 0] = mag
+#         #[128, 3]
+#         mag = np.insert(mag, 1, 1, axis=1)
+#         mag = np.insert(mag, 2, 1, axis=1)
+        
+#         save_dict['c'+str(label)].append(mag)
+#         kk+=1
 
-        img1 = x1[0, 2:, 0:10, :, 0].cpu().detach().numpy()
+#         img1 = x1[0, 2:, 0:10, :, 0].cpu().detach().numpy()
         
-        imshape = img1.shape
-        img1 = img1.transpose((1, 2, 0))
+#         imshape = img1.shape
+#         img1 = img1.transpose((1, 2, 0))
         
-        M = np.linalg.norm(img1, axis=2)
-        T = np.arctan2(img1[:,:,1],img1[:,:,0]) / np.pi
+#         M = np.linalg.norm(img1, axis=2)
+#         T = np.arctan2(img1[:,:,1],img1[:,:,0]) / np.pi
+        
+#         phase = np.expand_dims(T, axis=2)
+#         mag = np.expand_dims(M, axis=2)
+#         min_0 = np.min(phase, keepdims=True)
+#         max_0 = np.max(phase, keepdims=True)
+#         min_2 = np.min(mag, keepdims=True)
+#         max_2 = np.max(mag, keepdims=True)
+#         phase = (phase - min_0)/ (max_0-min_0)
+#         mag = (mag - min_2)/ (max_2-min_2)
+        
+#         mag = np.insert(mag, 1, 1, axis=2)
+#         mag = np.insert(mag, 2, 1, axis=2)
+        
+#         phase = phase.transpose((1, 2, 0))
+#         mag = mag.transpose((1, 2, 0))
+     
+#         save_dict['c'+str(label)].append(phase)
+#         save_dict['c'+str(label)].append(mag)
+#         kk+=1
+
+#         img2 = x2[0, 0:10, :, :].cpu().detach().numpy()
+#         img2 = img2.transpose((1, 2, 0))
+#         save_dict['c'+str(label)].append(img2)
+        
+#         kk+=1
+
+#         img3 = x3[0, 0:10, :, :].cpu().detach().numpy()
+#         img3 = img3.transpose((1, 2, 0))
+
+#         save_dict['c'+str(label)].append(img3)
+
+#         kk+=1
+        
+#         img4 = x4[0, 0:10, :, :].cpu().detach().numpy()
+#         imshape = img4.shape
+
+#         save_dict['c'+str(label)].append(img4)
+
+#         kk+=1
+
+#         img5 = x5[0, :, :, :].cpu().detach().numpy().reshape(x5.shape[1], 1)
+#         save_dict['c'+str(label)].append(img5)
+
+#         kk+=1
+    for i in range(5):
+        img6 = sure[i, :, 0:10, :, 0].cpu().detach().numpy()
+        
+        imshape = img6.shape
+        img6 = img6.transpose((1, 2, 0))
+        
+        M = np.linalg.norm(img6, axis=2)
+        T = np.arctan2(img6[:,:,1],img6[:,:,0]) / np.pi
         
         phase = np.expand_dims(T, axis=2)
         mag = np.expand_dims(M, axis=2)
@@ -678,34 +730,10 @@ def visualize(model, data_generator):
         phase = phase.transpose((1, 2, 0))
         mag = mag.transpose((1, 2, 0))
      
-        save_dict['c'+str(label)].append(phase)
-        save_dict['c'+str(label)].append(mag)
-        kk+=1
-
-        img2 = x2[0, 0:10, :, :].cpu().detach().numpy()
-        img2 = img2.transpose((1, 2, 0))
-        save_dict['c'+str(label)].append(img2)
+        save_dict['d0_'+str(i)]=phase
+        save_dict['d1_'+str(i)]=mag
         
-        kk+=1
-
-        img3 = x3[0, 0:10, :, :].cpu().detach().numpy()
-        img3 = img3.transpose((1, 2, 0))
-
-        save_dict['c'+str(label)].append(img3)
-
-        kk+=1
         
-        img4 = x4[0, 0:10, :, :].cpu().detach().numpy()
-        imshape = img4.shape
-
-        save_dict['c'+str(label)].append(img4)
-
-        kk+=1
-
-        img5 = x5[0, :, :, :].cpu().detach().numpy().reshape(x5.shape[1], 1)
-        save_dict['c'+str(label)].append(img5)
-
-        kk+=1
     sio.savemat('data_new.mat', save_dict)
 
 
@@ -808,14 +836,15 @@ def main():
 #     model.load_state_dict(torch.load(save_path))
 #     train_gen = data_prep_visualize("../data/RML2016.10a_dict.pkl", 100)
 #     visualize(model, train_gen)
+#     exit()
         
 #     num_distr = [5, 8, 10, 3]
 #     batches = [300, 50, 100, 200, 400, 500, 800, 1000, 30, 80, 300]
 #     lrs = [0.04, 0.08]
     
-    num_distr = [3, 5, 10]
-    batches = [400, 500, 200, 100, 800]
-    lrs = [0.05, 0.02, 0.01, 0.03, 0.008]
+    num_distr = [3, 4, 5, 8, 11]
+    batches = [200, 400, 500, 200, 100, 800, 50]
+    lrs = [0.03, 0.02, 0.01, 0.03, 0.008, 0.005, 0.05]
     
     for n in num_distr:
     #model = Net().to(device)
@@ -834,7 +863,7 @@ def main():
 
             for lr_ in lrs:
                 optimizer = optim.Adam(model.parameters(), lr=lr_, eps=1e-3, amsgrad=True )#momentum=args.momentum)
-                scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.6)
+                scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.8)
                 logger.info("##########")
                 logger.info("Model Parameters: "+str(params))
                 logger.info("Number of distributions: "+str(n))
@@ -851,9 +880,9 @@ def main():
                     eval_train(args, model, device, train_loader)
                     save_path, best_acc = test(args, model, device, test_loader, lbl, snrs, test_idx, best_acc, save_path)
                     logger.info(str([n, b, lr_]))
-                    if epoch > 40:
+                    if epoch > 60:
                         scheduler.step()
-                model = ManifoldNetW1().to(device)
+                model = ManifoldNetComplex(n).to(device)
 #     for n in num_distr:
 #     #model = Net().to(device)
 #         model = STFT(n).to(device)

@@ -181,25 +181,76 @@ def visualize(model, data_generator):
     save_dict = {}
     for it,(local_batch, local_labels) in enumerate(data_generator):
         batch = torch.tensor(local_batch, requires_grad=True).cuda()
-        x0, x1, x2, x3, x4, x5, x, res_loss = model(batch, None)
-        label = local_labels.item()
-        save_dict['c'+str(label)] = []
+        sure, x0, x1, x2, x3, x4, x5, x, res_loss = model(batch, None)
+#         label = local_labels.item()
+#         save_dict['c'+str(label)] = []
         
-        img = x0[0, :, 0, :, :].cpu().detach().numpy()
+#         img = x0[0, :, 0, :, :].cpu().detach().numpy()
         
         
-        #H is phase V is magnitude
-        #[2, H, W] phase, mag
-        img = img.transpose((1, 2, 0))
-        img = np.insert(img, 1, 1, axis=2)
+#         #H is phase V is magnitude
+#         #[2, H, W] phase, mag
+#         img = img.transpose((1, 2, 0))
+#         img = np.insert(img, 1, 1, axis=2)
         
-        #[128, 1]
-        img[:, :, 0] = img[:, :, 0] / math.pi
-        img[:, :, 2] = np.sqrt(img[:, :, 2])
+#         #[128, 1]
+#         img[:, :, 0] = img[:, :, 0] / math.pi
+#         img[:, :, 2] = np.sqrt(img[:, :, 2])
         
-        save_dict['c'+str(label)].append(img)
+#         save_dict['c'+str(label)].append(img)
         
-        img1 = x1[0, :, 6:16, :, :].cpu().detach().numpy()
+#         img1 = x1[0, :, 6:16, :, :].cpu().detach().numpy()
+#         img1 = img1.transpose((2, 3, 0, 1))
+#         img1 = np.insert(img1, 1, 1, axis=2)
+
+#         img1[:, :, 2, :] = np.sqrt(img1[:, :, 2, :])
+
+#         min_0 = np.min(img1[:, :, 0, :], keepdims=True)
+#         max_0 = np.max(img1[:, :, 0, :], keepdims=True)
+
+#         min_2 = np.min(img1[:, :, 2, :], keepdims=True)
+#         max_2 = np.max(img1[:, :, 2, :], keepdims=True)
+
+#         img1[:, :, 0, :] = (img1[:, :, 0, :] - min_0)/ (max_0-min_0)
+#         img1[:, :, 2, :] = (img1[:, :, 2, :] - min_2)/ (max_2-min_2)
+        
+#         save_dict['c'+str(label)].append(img1)
+        
+        
+
+#         img2 = x2[0, 0:10, :, :].cpu().detach().numpy()
+#         img2 = img2.transpose((1, 2, 0))
+        
+#         img2 = (img2 - np.min(img2)) / (np.max(img2) - np.min(img2))
+        
+#         save_dict['c'+str(label)].append(img2)
+        
+#         kk+=1
+
+#         img3 = x3[0, 0:10, :, :].cpu().detach().numpy()
+#         img3 = img3.transpose((1, 2, 0))
+        
+#         img3 = (img3 - np.min(img3)) / (np.max(img3) - np.min(img3))
+
+#         save_dict['c'+str(label)].append(img3)
+
+#         kk+=1
+        
+#         img4 = x4[0, 0:10, :, :].cpu().detach().numpy()
+#         imshape = img4.shape
+#         img4 = (img4 - np.min(img4)) / (np.max(img4) - np.min(img4))
+#         save_dict['c'+str(label)].append(img4)
+
+#         kk+=1
+
+#         img5 = x5[0, :, :, :].cpu().detach().numpy().reshape(x5.shape[1], 1)
+#         save_dict['c'+str(label)].append(img5)
+
+#         kk+=1
+
+    for i in range(5):
+        
+        img1 = sure[i, :, 6:16, :, :].cpu().detach().numpy()
         img1 = img1.transpose((2, 3, 0, 1))
         img1 = np.insert(img1, 1, 1, axis=2)
 
@@ -214,39 +265,8 @@ def visualize(model, data_generator):
         img1[:, :, 0, :] = (img1[:, :, 0, :] - min_0)/ (max_0-min_0)
         img1[:, :, 2, :] = (img1[:, :, 2, :] - min_2)/ (max_2-min_2)
         
-        save_dict['c'+str(label)].append(img1)
+        save_dict['d'+str(i)]=img1
         
-        
-
-        img2 = x2[0, 0:10, :, :].cpu().detach().numpy()
-        img2 = img2.transpose((1, 2, 0))
-        
-        img2 = (img2 - np.min(img2)) / (np.max(img2) - np.min(img2))
-        
-        save_dict['c'+str(label)].append(img2)
-        
-        kk+=1
-
-        img3 = x3[0, 0:10, :, :].cpu().detach().numpy()
-        img3 = img3.transpose((1, 2, 0))
-        
-        img3 = (img3 - np.min(img3)) / (np.max(img3) - np.min(img3))
-
-        save_dict['c'+str(label)].append(img3)
-
-        kk+=1
-        
-        img4 = x4[0, 0:10, :, :].cpu().detach().numpy()
-        imshape = img4.shape
-        img4 = (img4 - np.min(img4)) / (np.max(img4) - np.min(img4))
-        save_dict['c'+str(label)].append(img4)
-
-        kk+=1
-
-        img5 = x5[0, :, :, :].cpu().detach().numpy().reshape(x5.shape[1], 1)
-        save_dict['c'+str(label)].append(img5)
-
-        kk+=1
     sio.savemat('data_new.mat', save_dict)
     
     

@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+from pdb import set_trace as st
 
 
 #Y = torch.tensor([[0, self.weight_rot],[-self.weight_rot, 0]])
@@ -35,11 +36,13 @@ def b_inv(b_mat):
 
 
 def weightNormalizexy(weights1, weights2):
-    out = []
-    nw = torch.norm(torch.cat((weights1.unsqueeze(0), weights2.unsqueeze(0)),0), dim=0)
-    for row in nw:
-        out.append(row/torch.sum(row))
-    return torch.stack(out)
+#     out = []
+#     nw = torch.norm(torch.cat((weights1.unsqueeze(0), weights2.unsqueeze(0)),0), dim=0)
+#     for row in nw:
+#         out.append(row/torch.sum(row))
+    weights = (weights1+weights2)**2
+    weights = weights / torch.sum(weights)
+    return weights
 
 def weightNormalize(weights, drop_prob=0.0):
     out = []
@@ -849,13 +852,21 @@ class ComplexConv2Deffangle4Dxy(nn.Module):
         out_x = ((torch.sum(temporal_buckets_x.permute(0,3,1,2).contiguous().view(-1, tbr_shape[1], tbr_shape[2])*(self.weight_matrix_rot1x),2))).view(tbr_shape[0],tbr_shape[3],tbr_shape[1]).permute(0,2,1).contiguous()
         
         out_y = ((torch.sum(temporal_buckets_y.permute(0,3,1,2).contiguous().view(-1, tbr_shape[1], tbr_shape[2])*(self.weight_matrix_rot1y),2))).view(tbr_shape[0],tbr_shape[3],tbr_shape[1]).permute(0,2,1).contiguous()
+        
+        #Shape: [Batch, in_channels, L], 
         out_rot = ((torch.sum(temporal_buckets_rot.permute(0,3,1,2).contiguous().view(-1, tbr_shape[1], tbr_shape[2])*weightNormalizexy(self.weight_matrix_rot1x, self.weight_matrix_rot1y),2))).view(tbr_shape[0],tbr_shape[3],tbr_shape[1]).permute(0,2,1).contiguous()
         
         
         out_rot_shape = out_rot.shape
+        #[Batch, L, in_channels] -> [Batch*L, 1, in_channels] -> [Batch*L, out_channels, in_channels]
         out_rot = out_rot.permute(0,2,1).contiguous().view(-1,1,self.in_channels).repeat(1,self.out_channels,1)
+        # [Batch*L, out_channels]
         out_rot = (torch.sum(out_rot*weightNormalizexy(self.weight_matrix_rot2x, self.weight_matrix_rot2y),2)).view(out_rot_shape[0], 1, out_spatial_x, out_spatial_y, self.out_channels).permute(0,1,4,2,3).contiguous()
- 
+        
+#         out_rot = out_rot.permute(0,2,1).contiguous().unsqueeze(-1).repeat(1,1,1,self.out_channels)
+#         out_rot = (torch.sum(out_rot*weightNormalizexy(self.weight_matrix_rot2x, self.weight_matrix_rot2y).transpose(1, 0),2)).view(out_rot_shape[0], 1, out_spatial_x, out_spatial_y, self.out_channels).permute(0,1,4,2,3).contiguous()
+
+        ###
        
         out_x = out_x.permute(0,2,1).contiguous().view(-1,1,self.in_channels).repeat(1,self.out_channels,1)
         out_x = (torch.sum(out_x*(self.weight_matrix_rot2x),2)).view(out_rot_shape[0], 1, out_spatial_x, out_spatial_y, self.out_channels).permute(0,1,4,2,3).contiguous()
